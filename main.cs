@@ -22,7 +22,7 @@ class Init {
         if (res.IsErr()) {
             Console.WriteLine(res.AsErr());
         } else {
-            var metaRes = Meta.Generate(res.AsOk());
+            var metaRes = Meta.GenerateToJSON(res.AsOk());
             if (metaRes.error != MetaError.None) {
                 Console.WriteLine($"ERROR: {metaRes.error}");
             } else {

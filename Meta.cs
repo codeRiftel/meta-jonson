@@ -407,7 +407,7 @@ namespace vjp.meta {
     }
 
     public static class Meta {
-        public static MetaRes Generate(JSONType description) {
+        public static MetaRes GenerateToJSON(JSONType description) {
             if (description.Obj.IsNone()) {
                 return MetaRes.Err(MetaError.RootIsNotObject);
             }
@@ -424,8 +424,8 @@ namespace vjp.meta {
             .Using("System.Collections.Generic")
             .Using("System.Globalization")
             .Using("option")
-            .Namespace("vjp.autogen")
-            .Class("public static", "MetaVJPExtensions")
+            .Namespace("vjp.autogen.to")
+            .Class("public static", "ToJSONExtensions")
             .BuildPreMethods(builder, ref indent);
 
             var slaveTypes = new HashSet<string>();

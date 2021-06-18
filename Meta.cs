@@ -440,7 +440,7 @@ namespace vjp.meta {
                 var desc = descType.Obj.Peel();
 
                 var typeName = typeDescPair.Key;
-                var instName = $"{char.ToLower(typeName[0])}{typeName.Substring(1)}Val";
+                var instName = "val";
                 var rootName = "root";
 
                 var methodBuilder = new MethodBuilder();

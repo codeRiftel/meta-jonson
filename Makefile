@@ -1,12 +1,22 @@
 .PHONY: all build test auto
 
-all: build test auto
+all: build test_to test_from auto_to auto_from
+
+to: build test_to auto_to
+
+from: build test_from auto_from
 
 build:
 	mcs Meta.cs main.cs VJP.cs option/*cs -out:meta.exe
 
-test:
-	cat test.json | mono meta.exe > AutoGen.cs && cat AutoGen.cs
+test_to:
+	cat test.json | mono meta.exe to > AutoGenTo.cs && cat AutoGenTo.cs
 
-auto:
-	mcs main_auto.cs AutoGen.cs VJP.cs option/*cs -out:auto.exe
+test_from: test_to
+	cat test.json | mono meta.exe from > AutoGenFrom.cs && cat AutoGenFrom.cs
+
+auto_to:
+	mcs main_to.cs Person.cs AutoGenTo.cs VJP.cs option/*cs -out:auto_to.exe
+
+auto_from:
+	mcs main_from.cs Person.cs AutoGenTo.cs AutoGenFrom.cs VJP.cs option/*cs -out:auto_from.exe

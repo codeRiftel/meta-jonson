@@ -22,11 +22,19 @@ class Init {
         if (res.IsErr()) {
             Console.WriteLine(res.AsErr());
         } else {
-            var metaRes = Meta.GenerateToJSON(res.AsOk());
-            if (metaRes.error != MetaError.None) {
-                Console.WriteLine($"ERROR: {metaRes.error}");
-            } else {
-                Console.WriteLine(metaRes.code);
+            if (args.Length > 0) {
+                MetaRes metaRes = default(MetaRes);
+                if (args[0] == "to") {
+                    metaRes = Meta.GenerateToJSON(res.AsOk());
+                } else if (args[0] == "from") {
+                    metaRes = Meta.GenerateFromJSON(res.AsOk());
+                }
+
+                if (metaRes.error != MetaError.None) {
+                    Console.WriteLine($"ERROR: {metaRes.error}");
+                } else {
+                    Console.WriteLine(metaRes.code);
+                }
             }
         }
 

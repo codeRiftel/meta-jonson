@@ -28,15 +28,6 @@ namespace vjp.meta {
         }
     }
 
-    struct FieldGenContext {
-        public string fieldType;
-        public string fieldName;
-        public string source;
-        public string leftAssign;
-        public bool lastField;
-        public Dictionary<string, JSONType> objs;
-    }
-
     class IndentMaster {
         public static void Add(int indentCount, StringBuilder builder) {
             for (int i = 0; i < indentCount; i++) {
@@ -147,7 +138,7 @@ namespace vjp.meta {
                 builder.Append(parameters[i]);
 
                 if (i < parameters.Count - 1) {
-                    builder.Append(',');
+                    builder.Append(", ");
                 }
             }
             builder.Append(')');
@@ -398,8 +389,11 @@ namespace vjp.meta {
         public ReturnBuilder Build(StringBuilder builder, ref int indent) {
             IndentMaster.Add(indent, builder);
 
-            builder.Append("return ");
-            builder.Append(body);
+            builder.Append("return");
+            if (body != "") {
+                builder.Append(" ");
+                builder.Append(body);
+            }
             builder.Append(";\n");
 
             return this;
@@ -407,6 +401,371 @@ namespace vjp.meta {
     }
 
     public static class Meta {
+        public static MetaRes GenerateFromJSON(JSONType description) {
+            if (description.Obj.IsNone()) {
+                return MetaRes.Err(MetaError.RootIsNotObject);
+            }
+
+            var objs = description.Obj.Peel();
+
+            LayoutBuilder layoutBuilder = new LayoutBuilder();
+            StringBuilder builder = new StringBuilder();
+            int indent = 0;
+
+            layoutBuilder
+            .Using("System.Collections.Generic")
+            .Using("System.Globalization")
+            .Namespace("vjp.autogen.from")
+            .Class("public static", "FromJSONExtensions")
+            .BuildPreMethods(builder, ref indent);
+
+            var slaveTypes = new HashSet<string>();
+
+            foreach (var typeDescPair in objs) {
+                var descType = typeDescPair.Value;
+
+                if (descType.Obj.IsNone()) {
+                    return MetaRes.Err(MetaError.DescriptionIsNotObject);
+                }
+
+                var typeName = typeDescPair.Key;
+                var desc = descType.Obj.Peel();
+
+                var methodBuilder = new MethodBuilder();
+                methodBuilder
+                .Modifiers("public static")
+                .Return("void")
+                .Name("FromJSON")
+                .Parameter("this JSONType type")
+                .Parameter($"ref {typeName} val")
+                .BuildPreBody(builder, ref indent);
+
+                if (desc.ContainsKey("__is_ref")) {
+                    var ifNull = new IfBuilder();
+                    ifNull
+                    .Condition("val == null")
+                    .BuildCondition(builder, ref indent);
+
+                    var create = new AssignBuilder();
+                    create
+                    .Left("val")
+                    .Right($"new {typeName}()")
+                    .Build(builder, ref indent);
+
+                    ifNull
+                    .BuildEndCondition(builder, ref indent, true);
+
+                    builder.Append('\n');
+                }
+
+                var ifNotObj = new IfBuilder();
+                ifNotObj
+                .Condition("type.Obj.IsNone()")
+                .BuildCondition(builder, ref indent);
+
+                var returnIfNoObj = new ReturnBuilder();
+                returnIfNoObj
+                .Body("")
+                .Build(builder, ref indent);
+
+                ifNotObj
+                .BuildEndCondition(builder, ref indent, true);
+
+                builder.Append('\n');
+
+                var declareRoot = new DeclareBuilder();
+                declareRoot
+                .Type("Dictionary<string, JSONType>")
+                .Name("root")
+                .Assign("type.Obj.Peel()")
+                .Build(builder, ref indent);
+
+                builder.Append('\n');
+
+                foreach (var fieldPair in desc) {
+                    var field = fieldPair.Key;
+
+                    if (field.StartsWith("__")) {
+                        continue;
+                    }
+
+                    var typeJSON = fieldPair.Value;
+
+                    if (typeJSON.Str.IsNone()) {
+                        return MetaRes.Err(MetaError.FieldTypeIsNotString);
+                    }
+
+                    var type = typeJSON.Str.Peel();
+
+                    if (IsPrimitiveType(type)) {
+                        slaveTypes.Add(type);
+                    }
+
+                    if (type.StartsWith("enum ")) {
+                        slaveTypes.Add("int");
+                    }
+
+                    var ifContains = new IfBuilder();
+                    ifContains
+                    .Condition($"root.ContainsKey(\"{field}\")")
+                    .BuildCondition(builder, ref indent);
+
+                    IndentMaster.Add(indent, builder);
+                    builder.Append($"root[\"{field}\"].FromJSON(ref val.{field});\n");
+
+                    ifContains
+                    .BuildEndCondition(builder, ref indent, true);
+
+                    builder.Append('\n');
+                }
+
+                methodBuilder.BuildPostBody(builder, ref indent);
+
+                builder.Append('\n');
+            }
+
+            foreach (var slave in slaveTypes) {
+                var type = slave;
+                var isEnum = false;
+                if (slave.StartsWith("enum ")) {
+                    isEnum = true;
+                    type = slave.Substring(5);
+                }
+
+                var methodBuilder = new MethodBuilder();
+
+                methodBuilder
+                .Modifiers("public static")
+                .Return("void")
+                .Name("FromJSON")
+                .Parameter("this JSONType type")
+                .Parameter($"ref {type} val")
+                .BuildPreBody(builder, ref indent);
+
+                if (type == "string") {
+                    var ifStr = new IfBuilder();
+                    ifStr
+                    .Condition("type.Str.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    var assignVal = new AssignBuilder();
+                    assignVal
+                    .Left("val")
+                    .Right("type.Str.Peel()")
+                    .Build(builder, ref indent);
+
+                    ifStr
+                    .BuildEndCondition(builder, ref indent, true);
+                } else if (type == "bool") {
+                    var ifBool = new IfBuilder();
+                    ifBool
+                    .Condition("type.Bool.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    var assignVal = new AssignBuilder();
+                    assignVal
+                    .Left("val")
+                    .Right("type.Bool.Peel()")
+                    .Build(builder, ref indent);
+
+                    ifBool
+                    .BuildEndCondition(builder, ref indent, true);
+                } else if (IsNumType(type)) {
+                    var ifNum = new IfBuilder();
+                    ifNum
+                    .Condition("type.Num.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    var declareNumStr = new DeclareBuilder();
+                    declareNumStr
+                    .Type("string")
+                    .Name("numStr")
+                    .Assign("type.Num.Peel()")
+                    .Build(builder, ref indent);
+
+                    builder.Append('\n');
+
+                    var declareStyle = new DeclareBuilder();
+                    declareStyle
+                    .Type("NumberStyles")
+                    .Name("style")
+                    .Assign("NumberStyles.AllowDecimalPoint")
+                    .Build(builder, ref indent);
+
+                    IndentMaster.Add(indent, builder);
+                    builder.Append("style |= NumberStyles.AllowExponent;\n");
+                    IndentMaster.Add(indent, builder);
+                    builder.Append("style |= NumberStyles.AllowLeadingSign;\n");
+
+                    builder.Append('\n');
+
+                    IndentMaster.Add(indent, builder);
+                    var invCulture = "CultureInfo.InvariantCulture";
+                    builder.Append($"{type}.TryParse(numStr, style, {invCulture}, out val);\n");
+
+                    ifNum
+                    .BuildEndCondition(builder, ref indent, true);
+                } else if (isEnum) {
+                    var ifNum = new IfBuilder();
+                    ifNum
+                    .Condition("type.Num.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    var declareNum = new DeclareBuilder();
+                    declareNum
+                    .Type("int")
+                    .Name("num")
+                    .Assign("default(int)")
+                    .Build(builder, ref indent);
+
+                    IndentMaster.Add(indent, builder);
+                    builder.Append("type.FromJSON(ref num);\n");
+
+                    var assignVal = new AssignBuilder();
+                    assignVal
+                    .Left("val")
+                    .Right($"({type})num")
+                    .Build(builder, ref indent);
+
+                    ifNum
+                    .BuildEndCondition(builder, ref indent, true);
+                } else if (type.EndsWith("[]") || type.StartsWith("List<")) {
+                    var isArr = type.EndsWith("[]");
+
+                    string subtype = null;
+                    if (isArr) {
+                        subtype = type.Substring(0, type.Length - 2);
+                    } else {
+                        subtype = type.Substring(5, type.Length - 6);
+                    }
+
+                    var ifArr = new IfBuilder();
+                    ifArr
+                    .Condition("type.Arr.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    var declareList = new DeclareBuilder();
+                    declareList
+                    .Type("List<JSONType>")
+                    .Name("list")
+                    .Assign("type.Arr.Peel()")
+                    .Build(builder, ref indent);
+
+                    var createVal = new AssignBuilder();
+                    createVal
+                    .Left("val");
+
+                    if (isArr) {
+                        createVal
+                        .Right($"new {subtype}[list.Count]");
+                    } else {
+                        createVal
+                        .Right($"new List<{subtype}>(list.Count)");
+                    }
+
+                    createVal
+                    .Build(builder, ref indent);
+
+                    builder.Append('\n');
+
+                    var forBuilder = new ForBuilder();
+                    forBuilder
+                    .Init("int i = 0")
+                    .Condition("i < list.Count")
+                    .Increment("i++")
+                    .BuildPre(builder, ref indent);
+
+                    var declareElement = new DeclareBuilder();
+                    declareElement
+                    .Type(subtype)
+                    .Name("element")
+                    .Assign($"default({subtype})")
+                    .Build(builder, ref indent);
+
+                    IndentMaster.Add(indent, builder);
+                    builder.Append("list[i].FromJSON(ref element);\n");
+
+                    if (isArr) {
+                        var assignElem = new AssignBuilder();
+                        assignElem
+                        .Left("val[i]")
+                        .Right("element")
+                        .Build(builder, ref indent);
+                    } else {
+                        IndentMaster.Add(indent, builder);
+                        builder.Append("val.Add(element);\n");
+                    }
+
+                    forBuilder.BuildPost(builder, ref indent);
+
+                    ifArr
+                    .BuildEndCondition(builder, ref indent, true);
+                } else if (type.StartsWith("Dictionary<")) {
+                    var ifObj = new IfBuilder();
+                    ifObj
+                    .Condition("type.Obj.IsSome()")
+                    .BuildCondition(builder, ref indent);
+
+                    string subtype = null;
+                    var err = DictValueType(type, ref subtype);
+                    if (err != MetaError.None) {
+                        return MetaRes.Err(err);
+                    }
+
+                    var initVal = new AssignBuilder();
+                    initVal
+                    .Left("val")
+                    .Right($"new {type}()")
+                    .Build(builder, ref indent);
+
+                    var declareObj = new DeclareBuilder();
+                    declareObj
+                    .Type("Dictionary<string, JSONType>")
+                    .Name("obj")
+                    .Assign("type.Obj.Peel()")
+                    .Build(builder, ref indent);
+
+                    var foreachBuilder = new ForeachBuilder();
+                    foreachBuilder
+                    .Variable("pair")
+                    .Enumerable("obj")
+                    .BuildPre(builder, ref indent);
+
+                    var declarePairVal = new DeclareBuilder();
+                    declarePairVal
+                    .Type(subtype)
+                    .Name("pairVal")
+                    .Assign($"default({subtype})")
+                    .Build(builder, ref indent);
+
+                    IndentMaster.Add(indent, builder);
+                    builder.Append("pair.Value.FromJSON(ref pairVal);\n");
+
+                    var assignPair = new AssignBuilder();
+                    assignPair
+                    .Left("val[pair.Key]")
+                    .Right("pairVal")
+                    .Build(builder, ref indent);
+
+                    foreachBuilder
+                    .BuildPost(builder, ref indent);
+
+                    ifObj
+                    .BuildEndCondition(builder, ref indent, true);
+                }
+
+                methodBuilder
+                .BuildPostBody(builder, ref indent);
+
+                builder.Append('\n');
+            }
+
+            layoutBuilder
+            .BuildPostMethods(builder, ref indent);
+
+            return MetaRes.Code(builder.ToString());
+        }
+
         public static MetaRes GenerateToJSON(JSONType description) {
             if (description.Obj.IsNone()) {
                 return MetaRes.Err(MetaError.RootIsNotObject);
@@ -415,9 +774,7 @@ namespace vjp.meta {
             var objs = description.Obj.Peel();
 
             LayoutBuilder layoutBuilder = new LayoutBuilder();
-
             StringBuilder builder = new StringBuilder();
-
             int indent = 0;
 
             layoutBuilder
@@ -478,8 +835,6 @@ namespace vjp.meta {
                 var fieldCount = 0;
                 foreach (var fieldPair in desc) {
                     fieldCount++;
-
-                    var lastField = fieldCount == desc.Count;
 
                     var fieldName = fieldPair.Key;
 
@@ -690,18 +1045,11 @@ namespace vjp.meta {
                 .Enumerable(name)
                 .BuildPre(builder, ref indent);
 
-                var commaIndex = type.IndexOf(',');
-                if (commaIndex < 0) {
-                    return MetaError.MissingCommaInDictionary;
+                string valType = null;
+                var err = DictValueType(type, ref valType);
+                if (err != MetaError.None) {
+                    return err;
                 }
-
-                var closeAngleIndex = type.IndexOf('>');
-                if (closeAngleIndex < 0) {
-                    return MetaError.MissingClosingInDictionary;
-                }
-
-                var len = closeAngleIndex - commaIndex - 2;
-                var valType = type.Substring(commaIndex + 2, len);
 
                 var assignVal = new AssignBuilder();
                 assignVal
@@ -757,6 +1105,23 @@ namespace vjp.meta {
             isPrim = isPrim || type.StartsWith("enum ");
 
             return isPrim;
+        }
+
+        private static MetaError DictValueType(string type, ref string valType) {
+            var commaIndex = type.IndexOf(',');
+            if (commaIndex < 0) {
+                return MetaError.MissingCommaInDictionary;
+            }
+
+            var closeAngleIndex = type.IndexOf('>');
+            if (closeAngleIndex < 0) {
+                return MetaError.MissingClosingInDictionary;
+            }
+
+            var len = closeAngleIndex - commaIndex - 2;
+            valType = type.Substring(commaIndex + 2, len);
+
+            return MetaError.None;
         }
     }
 }

@@ -1,17 +1,18 @@
 # meta-vjp
-meta-vjp is a C# code generator for parsing and generating JSON from types using vjp.  
+meta-vjp is a C# code generator for parsing and generating JSON from/to types using vjp.  
 **NOTE:** this package depends on [Option](https://github.com/codeRiftel/option) and [vjp](https://github.com/codeRiftel/vjp).  
 
 ## Alternative
-There is [vjp-reflect](https://github.com/codeRiftel/vjp-reflect) if you want to be slow and pure [vjp](https://github.com/codeRiftel/vjp) if you want to be verbose.
+There is [vjp-reflect](https://github.com/codeRiftel/vjp-reflect) if you want to be slow.  
+If you want to do manual work, then you can go pure with [vjp](https://github.com/codeRiftel/vjp) and be verbose.
 
 ## How to use
-Check out Makefile to figure out how to build and .exe. Basically you have to have mono installed on your system.  
+Check out Makefile to figure out how to build an .exe. Basically you have to have mono installed on your system.  
 After you've build meta.exe you can run it like this  
-`mono meta.exe to < test.json > AutoGenTo.cs`  
+`mono meta.exe to < description.json > AutoGenTo.cs`  
 If you want to generate FromJSON extensions instead of ToJSON just replace `to` with `from`.  
-`mono meta.exe from < test.json > AutoGenFrom.cs`  
-Just look at `test.json` to get an idea of how to make a description file.  
+`mono meta.exe from < description.json > AutoGenFrom.cs`  
+Just look at `description.json` to get an idea of how to make a description file.  
 ```javascript
 {
     "__slaves": ["float", "double"],
@@ -39,7 +40,6 @@ Just look at `test.json` to get an idea of how to make a description file.
     }
 }
 ```
-For the most part it's pretty straightforward.  
 
 ## Notes
 * `__slaves` array is not necessary, but it's there then it must contain only built-in types (string, numbers, List, array, Dictionary, etc.). You should use it only if you want to make serialization/deserialization of some basic types persistent.

@@ -1,4 +1,5 @@
 option/
 *.exe
-AutoGen.cs
+AutoGenFrom.cs
+AutoGenTo.cs
 VJP.cs

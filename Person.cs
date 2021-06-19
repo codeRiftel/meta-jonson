@@ -9,6 +9,8 @@ public struct Person {
     public List<int> signature;
     public Dictionary<string, int> foo;
     public Number number;
+    public Bar? bar;
+    public int? nint;
 }
 
 public enum Number {
@@ -24,3 +26,7 @@ public class Job {
     public decimal salary;
 }
 
+public struct Bar {
+    public string foo;
+    public int foobar;
+}

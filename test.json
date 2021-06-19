@@ -1,4 +1,5 @@
 {
+    "__slaves": ["float", "double"],
     "Person": {
         "name": "string",
         "age": "int",
@@ -7,12 +8,18 @@
         "repos": "string[]",
         "signature": "List<int>",
         "foo": "Dictionary<string, int>",
-        "number": "enum Number"
+        "number": "enum Number",
+        "bar": "Bar?",
+        "nint": "int?"
     },
     "Job": {
         "__is_ref": true,
         "name": "string",
         "position": "string",
         "salary": "decimal"
+    },
+    "Bar": {
+        "foo": "string",
+        "foobar": "int"
     }
 }

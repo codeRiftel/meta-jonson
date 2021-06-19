@@ -12,7 +12,10 @@ namespace vjp.meta {
         IsRefMustBeBool,
         MissingCommaInDictionary,
         MissingClosingInDictionary,
-        UnsupportedPrimitive
+        UnsupportedPrimitive,
+        SlaveInfoMustBeArray,
+        SlaveMustBeString,
+        SlaveMustBePrimitive
     }
 
     public struct MetaRes {
@@ -265,29 +268,23 @@ namespace vjp.meta {
             return this;
         }
 
-        public IfBuilder BuildEndCondition(StringBuilder builder, ref int indent, bool newLine) {
+        public IfBuilder BuildElse(StringBuilder builder, ref int indent) {
+            indent--;
+            IndentMaster.Add(indent, builder);
+
+            builder.Append("} else {\n");
+            indent++;
+
+            return this;
+        }
+
+        public IfBuilder BuildEndCondition(StringBuilder builder, ref int indent) {
             indent--;
 
             IndentMaster.Add(indent, builder);
 
             builder.Append('}');
-            if (newLine) {
-                builder.Append('\n');
-            }
-
-            return this;
-        }
-
-        public IfBuilder BuildElse(StringBuilder builder, ref int indent) {
-            builder.Append(" else ");
-
-            return this;
-        }
-
-        public IfBuilder BuildElseBody(StringBuilder builder, ref int indent) {
-            builder.Append("{\n");
-
-            indent++;
+            builder.Append('\n');
 
             return this;
         }
@@ -424,11 +421,20 @@ namespace vjp.meta {
             foreach (var typeDescPair in objs) {
                 var descType = typeDescPair.Value;
 
+                var typeName = typeDescPair.Key;
+
                 if (descType.Obj.IsNone()) {
-                    return MetaRes.Err(MetaError.DescriptionIsNotObject);
+                    if (typeName == "__slaves") {
+                        var error = AddManualSlaves(descType, slaveTypes);
+                        if (error != MetaError.None) {
+                            return MetaRes.Err(error);
+                        }
+                        continue;
+                    } else {
+                        return MetaRes.Err(MetaError.DescriptionIsNotObject);
+                    }
                 }
 
-                var typeName = typeDescPair.Key;
                 var desc = descType.Obj.Peel();
 
                 var methodBuilder = new MethodBuilder();
@@ -453,7 +459,7 @@ namespace vjp.meta {
                     .Build(builder, ref indent);
 
                     ifNull
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
 
                     builder.Append('\n');
                 }
@@ -469,7 +475,7 @@ namespace vjp.meta {
                 .Build(builder, ref indent);
 
                 ifNotObj
-                .BuildEndCondition(builder, ref indent, true);
+                .BuildEndCondition(builder, ref indent);
 
                 builder.Append('\n');
 
@@ -505,16 +511,55 @@ namespace vjp.meta {
                         slaveTypes.Add("int");
                     }
 
+                    var isNullable = false;
+                    if (type.EndsWith("?")) {
+                        isNullable = true;
+                        type = type.Substring(0, type.Length - 1);
+                    }
+
                     var ifContains = new IfBuilder();
                     ifContains
                     .Condition($"root.ContainsKey(\"{field}\")")
                     .BuildCondition(builder, ref indent);
 
-                    IndentMaster.Add(indent, builder);
-                    builder.Append($"root[\"{field}\"].FromJSON(ref val.{field});\n");
+                    if (isNullable) {
+                        var ifFieldNull = new IfBuilder();
+                        ifFieldNull
+                        .Condition($"root[\"{field}\"].Null.IsSome()")
+                        .BuildCondition(builder, ref indent);
+
+                        var assignNull = new AssignBuilder();
+                        assignNull
+                        .Left($"val.{field}")
+                        .Right("null")
+                        .Build(builder, ref indent);
+
+                        ifFieldNull.BuildElse(builder, ref indent);
+
+                        var declareActual = new DeclareBuilder();
+                        declareActual
+                        .Type(type)
+                        .Name("actual")
+                        .Assign($"default({type})")
+                        .Build(builder, ref indent);
+
+                        IndentMaster.Add(indent, builder);
+                        builder.Append($"root[\"{field}\"].FromJSON(ref actual);\n");
+
+                        var assignActual = new AssignBuilder();
+                        assignActual
+                        .Left($"val.{field}")
+                        .Right("actual")
+                        .Build(builder, ref indent);
+
+                        ifFieldNull.BuildEndCondition(builder, ref indent);
+                    } else {
+                        IndentMaster.Add(indent, builder);
+                        builder.Append($"root[\"{field}\"].FromJSON(ref val.{field});\n");
+                    }
 
                     ifContains
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
 
                     builder.Append('\n');
                 }
@@ -555,7 +600,7 @@ namespace vjp.meta {
                     .Build(builder, ref indent);
 
                     ifStr
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 } else if (type == "bool") {
                     var ifBool = new IfBuilder();
                     ifBool
@@ -569,7 +614,7 @@ namespace vjp.meta {
                     .Build(builder, ref indent);
 
                     ifBool
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 } else if (IsNumType(type)) {
                     var ifNum = new IfBuilder();
                     ifNum
@@ -604,7 +649,7 @@ namespace vjp.meta {
                     builder.Append($"{type}.TryParse(numStr, style, {invCulture}, out val);\n");
 
                     ifNum
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 } else if (isEnum) {
                     var ifNum = new IfBuilder();
                     ifNum
@@ -628,7 +673,7 @@ namespace vjp.meta {
                     .Build(builder, ref indent);
 
                     ifNum
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 } else if (type.EndsWith("[]") || type.StartsWith("List<")) {
                     var isArr = type.EndsWith("[]");
 
@@ -699,7 +744,7 @@ namespace vjp.meta {
                     forBuilder.BuildPost(builder, ref indent);
 
                     ifArr
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 } else if (type.StartsWith("Dictionary<")) {
                     var ifObj = new IfBuilder();
                     ifObj
@@ -751,7 +796,7 @@ namespace vjp.meta {
                     .BuildPost(builder, ref indent);
 
                     ifObj
-                    .BuildEndCondition(builder, ref indent, true);
+                    .BuildEndCondition(builder, ref indent);
                 }
 
                 methodBuilder
@@ -790,13 +835,21 @@ namespace vjp.meta {
             foreach (var typeDescPair in objs) {
                 var descType = typeDescPair.Value;
 
+                var typeName = typeDescPair.Key;
                 if (descType.Obj.IsNone()) {
-                    return MetaRes.Err(MetaError.DescriptionIsNotObject);
+                    if (typeName == "__slaves") {
+                        var error = AddManualSlaves(descType, slaveTypes);
+                        if (error != MetaError.None) {
+                            return MetaRes.Err(error);
+                        }
+                        continue;
+                    } else {
+                        return MetaRes.Err(MetaError.DescriptionIsNotObject);
+                    }
                 }
 
                 var desc = descType.Obj.Peel();
 
-                var typeName = typeDescPair.Key;
                 var instName = "val";
                 var rootName = "root";
 
@@ -819,7 +872,7 @@ namespace vjp.meta {
                     .Body("JSONType.Make()")
                     .Build(builder, ref indent);
 
-                    ifNullBuilder.BuildEndCondition(builder, ref indent, true);
+                    ifNullBuilder.BuildEndCondition(builder, ref indent);
                     builder.Append('\n');
                 }
 
@@ -848,15 +901,36 @@ namespace vjp.meta {
                     }
                     var fieldType = fieldTypeOpt.Str.Peel();
 
+                    bool isNullable = false;
+                    if (fieldType.EndsWith("?")) {
+                        isNullable = true;
+                        fieldType = fieldType.Substring(0, fieldType.Length - 1);
+                    }
+
                     if (IsPrimitiveType(fieldType)) {
                         slaveTypes.Add(fieldType);
+                    }
+
+
+                    var ifFieldNull = new IfBuilder();
+                    var assignField = fieldName;
+                    if (isNullable) {
+                        ifFieldNull
+                        .Condition($"{instName}.{fieldName} != null")
+                        .BuildCondition(builder, ref indent);
+                        assignField = $"{fieldName}.Value";
                     }
 
                     var assign = new AssignBuilder();
                     assign
                     .Left($"{rootName}[\"{fieldName}\"]")
-                    .Right($"{instName}.{fieldName}.ToJSON()")
+                    .Right($"{instName}.{assignField}.ToJSON()")
                     .Build(builder, ref indent);
+
+                    if (isNullable) {
+                        ifFieldNull
+                        .BuildEndCondition(builder, ref indent);
+                    }
                 }
 
                 builder.Append('\n');
@@ -961,7 +1035,7 @@ namespace vjp.meta {
                 .Build(builder, ref indent);
 
                 ifNull
-                .BuildEndCondition(builder, ref indent, true);
+                .BuildEndCondition(builder, ref indent);
 
                 builder.Append('\n');
 
@@ -1027,7 +1101,7 @@ namespace vjp.meta {
                 .Body("JSONType.Make()")
                 .Build(builder, ref indent);
 
-                ifNotNull.BuildEndCondition(builder, ref indent, true);
+                ifNotNull.BuildEndCondition(builder, ref indent);
 
                 builder.Append('\n');
 
@@ -1053,7 +1127,7 @@ namespace vjp.meta {
 
                 var assignVal = new AssignBuilder();
                 assignVal
-                .Left("dict[pair.Key]")
+                .Left("dict[pair.Key.ToString()]")
                 .Right("pair.Value.ToJSON()")
                 .Build(builder, ref indent);
 
@@ -1120,6 +1194,28 @@ namespace vjp.meta {
 
             var len = closeAngleIndex - commaIndex - 2;
             valType = type.Substring(commaIndex + 2, len);
+
+            return MetaError.None;
+        }
+
+        private static MetaError AddManualSlaves(JSONType descType, HashSet<string> slaveTypes) {
+            if (descType.Arr.IsNone() ) {
+                return MetaError.SlaveInfoMustBeArray;
+            }
+
+            var slavesArr = descType.Arr.Peel();
+            foreach (var slave in slavesArr) {
+                if (slave.Str.IsNone()) {
+                    return MetaError.SlaveMustBeString;
+                }
+
+                var slaveName = slave.Str.Peel();
+                if (IsPrimitiveType(slaveName)) {
+                    slaveTypes.Add(slaveName);
+                } else {
+                    return MetaError.SlaveMustBePrimitive;
+                }
+            }
 
             return MetaError.None;
         }

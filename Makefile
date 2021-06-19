@@ -10,10 +10,10 @@ build:
 	mcs Meta.cs main.cs VJP.cs option/*cs -out:meta.exe
 
 test_to:
-	cat test.json | mono meta.exe to > AutoGenTo.cs && cat AutoGenTo.cs
+	mono meta.exe to < description.json > AutoGenTo.cs && cat AutoGenTo.cs
 
 test_from: test_to
-	cat test.json | mono meta.exe from > AutoGenFrom.cs && cat AutoGenFrom.cs
+	mono meta.exe from < description.json > AutoGenFrom.cs && cat AutoGenFrom.cs
 
 auto_to:
 	mcs main_to.cs Person.cs AutoGenTo.cs VJP.cs option/*cs -out:auto_to.exe

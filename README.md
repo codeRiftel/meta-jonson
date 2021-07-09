@@ -9,9 +9,9 @@ If you want to do manual work, then you can go pure with [vjp](https://github.co
 ## How to use
 Check out Makefile to figure out how to build an .exe. Basically you have to have mono installed on your system.  
 After you've build meta.exe you can run it like this  
-`mono meta.exe to < description.json > AutoGenTo.cs`  
+`mono meta.exe gen=to namespace=myFavoriteNamespaceName using=using1 using=using2 < description.json > AutoGenTo.cs`  
 If you want to generate FromJSON extensions instead of ToJSON just replace `to` with `from`.  
-`mono meta.exe from < description.json > AutoGenFrom.cs`  
+`mono meta.exe gen=from namespace=myLessFavoriteNamespaceName using=using3 using=using4 < description.json > AutoGenFrom.cs`  
 Just look at `description.json` to get an idea of how to make a description file.  
 ```javascript
 {

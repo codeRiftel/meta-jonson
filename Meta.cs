@@ -398,7 +398,11 @@ namespace vjp.meta {
     }
 
     public static class Meta {
-        public static MetaRes GenerateFromJSON(JSONType description) {
+        public static MetaRes GenerateFromJSON(
+            JSONType description,
+            string mainNamespace,
+            List<string> usings
+        ) {
             if (description.Obj.IsNone()) {
                 return MetaRes.Err(MetaError.RootIsNotObject);
             }
@@ -409,10 +413,16 @@ namespace vjp.meta {
             StringBuilder builder = new StringBuilder();
             int indent = 0;
 
-            layoutBuilder
+            layoutBuilder = layoutBuilder
             .Using("System.Collections.Generic")
-            .Using("System.Globalization")
-            .Namespace("vjp.autogen.from")
+            .Using("System.Globalization");
+
+            for (int i = 0; i < usings.Count; i++) {
+                layoutBuilder = layoutBuilder.Using(usings[i]);
+            }
+
+            layoutBuilder
+            .Namespace(mainNamespace)
             .Class("public static", "FromJSONExtensions")
             .BuildPreMethods(builder, ref indent);
 
@@ -811,7 +821,11 @@ namespace vjp.meta {
             return MetaRes.Code(builder.ToString());
         }
 
-        public static MetaRes GenerateToJSON(JSONType description) {
+        public static MetaRes GenerateToJSON(
+            JSONType description,
+            string mainNamespace,
+            List<string> usings
+        ) {
             if (description.Obj.IsNone()) {
                 return MetaRes.Err(MetaError.RootIsNotObject);
             }
@@ -822,11 +836,16 @@ namespace vjp.meta {
             StringBuilder builder = new StringBuilder();
             int indent = 0;
 
-            layoutBuilder
+            layoutBuilder = layoutBuilder
             .Using("System.Collections.Generic")
-            .Using("System.Globalization")
-            .Using("option")
-            .Namespace("vjp.autogen.to")
+            .Using("System.Globalization");
+
+            for (int i = 0; i < usings.Count; i++) {
+                layoutBuilder = layoutBuilder.Using(usings[i]);
+            }
+
+            layoutBuilder
+            .Namespace(mainNamespace)
             .Class("public static", "ToJSONExtensions")
             .BuildPreMethods(builder, ref indent);
 

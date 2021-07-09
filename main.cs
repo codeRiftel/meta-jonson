@@ -18,20 +18,54 @@ class Init {
 
         string input = inputBuilder.ToString();
 
+        var usings = new List<string>();
+        var mainNamespace = "vjp.autogen";
+        var genFrom = false;
+        var genTo = false;
+        foreach (var arg in args) {
+            if (arg.StartsWith("gen=")) {
+                var argParts = arg.Split('=');
+                if (argParts.Length == 2) {
+                    if (argParts[1] == "from") {
+                        genFrom = true;
+                    } else if (argParts[1] == "to") {
+                        genTo = true;
+                    }
+                }
+            }
+            if (arg.StartsWith("namespace=")) {
+                var argParts = arg.Split('=');
+                if (argParts.Length == 2) {
+                    mainNamespace = argParts[1];
+                }
+            } else if (arg.StartsWith("using=")) {
+                var argParts = arg.Split('=');
+                if (argParts.Length == 2) {
+                    usings.Add(argParts[1]);
+                }
+            }
+        }
+
+        if (!genFrom && !genTo) {
+            Console.WriteLine("You must specify either gen=from or gen=to");
+            return -1;
+        }
+
         var res = VJP.Parse(input, 1024);
         if (res.IsErr()) {
             Console.WriteLine(res.AsErr());
         } else {
             if (args.Length > 0) {
                 MetaRes metaRes = default(MetaRes);
-                if (args[0] == "to") {
-                    metaRes = Meta.GenerateToJSON(res.AsOk());
-                } else if (args[0] == "from") {
-                    metaRes = Meta.GenerateFromJSON(res.AsOk());
+                if (genTo) {
+                    metaRes = Meta.GenerateToJSON(res.AsOk(), mainNamespace, usings);
+                } else if (genFrom) {
+                    metaRes = Meta.GenerateFromJSON(res.AsOk(), mainNamespace, usings);
                 }
 
                 if (metaRes.error != MetaError.None) {
                     Console.WriteLine($"ERROR: {metaRes.error}");
+                    return -1;
                 } else {
                     Console.WriteLine(metaRes.code);
                 }

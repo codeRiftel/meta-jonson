@@ -1,10 +1,10 @@
-# meta-vjp
-meta-vjp is a C# code generator for parsing and generating JSON from/to types using vjp.  
-**NOTE:** this package depends on [Option](https://github.com/codeRiftel/option) and [vjp](https://github.com/codeRiftel/vjp).  
+# meta-jonson
+meta-jonson is a C# code generator for parsing and generating JSON from/to types using jonson.  
+**NOTE:** this package depends on [option](https://github.com/codeRiftel/option) and [jonson](https://github.com/codeRiftel/jonson).  
 
 ## Alternative
-There is [vjp-reflect](https://github.com/codeRiftel/vjp-reflect) if you want to be slow.  
-If you want to do manual work, then you can go pure with [vjp](https://github.com/codeRiftel/vjp) and be verbose.
+There is [jonson-reflect](https://github.com/codeRiftel/jonson-reflect) if you want to be slow.  
+If you want to do manual work, then you can go pure with [jonson](https://github.com/codeRiftel/jonson) and be verbose.
 
 ## How to use
 Check out Makefile to figure out how to build an .exe. Basically you have to have mono installed on your system.  

@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace vjp.meta {
+namespace jonson.meta {
     public enum MetaError {
         None,
         RootIsNotObject,

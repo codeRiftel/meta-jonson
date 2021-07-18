@@ -2,8 +2,8 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
-using vjp;
-using vjp.autogen.to;
+using jonson;
+using jonson.autogen.to;
 using option;
 using System.Globalization;
 
@@ -26,7 +26,7 @@ class Init {
 
         person.number = Number.Two;
 
-        string output = VJP.Generate(person.ToJSON());
+        string output = Jonson.Generate(person.ToJSON());
         Console.WriteLine(output);
 
         return 0;

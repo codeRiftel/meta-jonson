@@ -2,8 +2,8 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
-using vjp;
-using vjp.meta;
+using jonson;
+using jonson.meta;
 using option;
 using System.Globalization;
 
@@ -19,7 +19,7 @@ class Init {
         string input = inputBuilder.ToString();
 
         var usings = new List<string>();
-        var mainNamespace = "vjp.autogen";
+        var mainNamespace = "jonson.autogen";
         var genFrom = false;
         var genTo = false;
         foreach (var arg in args) {
@@ -51,7 +51,7 @@ class Init {
             return -1;
         }
 
-        var res = VJP.Parse(input, 1024);
+        var res = Jonson.Parse(input, 1024);
         if (res.IsErr()) {
             Console.WriteLine(res.AsErr());
         } else {

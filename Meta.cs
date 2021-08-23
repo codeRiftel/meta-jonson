@@ -1206,7 +1206,7 @@ namespace jonson.meta {
                 return MetaError.MissingCommaInDictionary;
             }
 
-            var closeAngleIndex = type.IndexOf('>');
+            var closeAngleIndex = type.LastIndexOf('>');
             if (closeAngleIndex < 0) {
                 return MetaError.MissingClosingInDictionary;
             }

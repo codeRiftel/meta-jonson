@@ -400,6 +400,7 @@ namespace jonson.meta {
     public static class Meta {
         public static MetaRes GenerateFromJSON(
             JSONType description,
+            string className,
             string mainNamespace,
             List<string> usings
         ) {
@@ -423,7 +424,7 @@ namespace jonson.meta {
 
             layoutBuilder
             .Namespace(mainNamespace)
-            .Class("public static", "FromJSONExtensions")
+            .Class("public static", className)
             .BuildPreMethods(builder, ref indent);
 
             var slaveTypes = new HashSet<string>();
@@ -823,6 +824,7 @@ namespace jonson.meta {
 
         public static MetaRes GenerateToJSON(
             JSONType description,
+            string className,
             string mainNamespace,
             List<string> usings
         ) {
@@ -846,7 +848,7 @@ namespace jonson.meta {
 
             layoutBuilder
             .Namespace(mainNamespace)
-            .Class("public static", "ToJSONExtensions")
+            .Class("public static", className)
             .BuildPreMethods(builder, ref indent);
 
             var slaveTypes = new HashSet<string>();
@@ -1088,15 +1090,6 @@ namespace jonson.meta {
                 .Condition($"i < {lenName}")
                 .Increment("i++")
                 .BuildPre(builder, ref indent);
-
-                string elemType;
-                if (isArray) {
-                    elemType = type.Substring(0, type.Length - 2);
-                } else {
-                    elemType = type.Substring(5, type.Length - 6);
-                }
-
-                var elemName = "elem";
 
                 IndentMaster.Add(indent, builder);
                 builder.Append($"{listName}.Add({name}[i].ToJSON());\n");

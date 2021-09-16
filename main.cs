@@ -22,6 +22,7 @@ class Init {
         var mainNamespace = "jonson.autogen";
         var genFrom = false;
         var genTo = false;
+        string className = null;
         foreach (var arg in args) {
             if (arg.StartsWith("gen=")) {
                 var argParts = arg.Split('=');
@@ -43,6 +44,11 @@ class Init {
                 if (argParts.Length == 2) {
                     usings.Add(argParts[1]);
                 }
+            } else if (arg.StartsWith("class=")) {
+                var argParts = arg.Split('=');
+                if (argParts.Length == 2) {
+                    className = argParts[1];
+                }
             }
         }
 
@@ -58,9 +64,15 @@ class Init {
             if (args.Length > 0) {
                 MetaRes metaRes = default(MetaRes);
                 if (genTo) {
-                    metaRes = Meta.GenerateToJSON(res.AsOk(), mainNamespace, usings);
+                    if (className == null) {
+                        className = "ToJSONExtensions";
+                    }
+                    metaRes = Meta.GenerateToJSON(res.AsOk(), className, mainNamespace, usings);
                 } else if (genFrom) {
-                    metaRes = Meta.GenerateFromJSON(res.AsOk(), mainNamespace, usings);
+                    if (className == null) {
+                        className = "FromJSONExtensions";
+                    }
+                    metaRes = Meta.GenerateFromJSON(res.AsOk(), className, mainNamespace, usings);
                 }
 
                 if (metaRes.error != MetaError.None) {
